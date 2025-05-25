@@ -33,22 +33,8 @@ async def ask_llm(history: list[dict]) -> str:
         return
     return response.content
 
-def is_valid_history(history: list) -> bool:
-    """
-    Проверка: system, user, assistant, user, assistant...
-    """
-    if not history:
-        return True
-    expected_roles = ["system"] + ["user", "assistant"] * 50
-    for i, msg in enumerate(history):
-        if msg["role"] != expected_roles[i]:
-            return False
-    return True
 
 def normalize_roles(messages: list[dict]) -> list[dict]:
-    """
-    Удаляет подряд идущие одинаковые роли, чтобы они чередовались user/assistant.
-    """
     if not messages:
         return []
 
