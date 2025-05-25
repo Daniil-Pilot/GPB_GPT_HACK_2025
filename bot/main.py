@@ -4,8 +4,6 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
 
-from bot.llm import is_valid_history
-
 from bot.handlers import register_handlers
 
 load_dotenv()
