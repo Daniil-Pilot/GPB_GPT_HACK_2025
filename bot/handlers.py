@@ -7,7 +7,6 @@ from utils.extract_position import extract_position
 from bot.llm import ask_llm
 from bot.memory import history_by_user, users
 
-
 class TgUserData(TypedDict, total=False):
     state: str
     history: list
@@ -68,15 +67,14 @@ def register_handlers(dp: Dispatcher):
             user["state"] = "analyzing"
             await message.answer("Спасибо! Анализирую ваши ответы...")
 
-            history.append({"role": "user", "content": FINAL_SUMMARY_REQUEST})
-
             try:
-                prompt = FINAL_SUMMARY_REQUEST
+                position = user.get("position", "не указана")
+                prompt = FINAL_SUMMARY_REQUEST.format(position=position)
 
                 full_history = "\n".join(
                     f"{msg['role'].capitalize()}: {msg['content']}" for msg in history if msg["role"] != "system"
                 )
-                final_prompt = {"role": "user", "content": prompt + full_history}
+                final_prompt = {"role": "user", "content": prompt + "\n" + full_history}
 
                 evaluation_history = [
                     {"role": "system", "content": "Ты — эксперт по подбору IT-специалистов. Твоя задача — проанализировать диалог и выбрать наиболее подходящую профессию для кандидата. Кандидат может врать"},
@@ -102,6 +100,7 @@ def register_handlers(dp: Dispatcher):
 
             await message.answer(f"Вердикт: {verdict}")
             return
+
 
         try:
             response = await ask_llm(history)
