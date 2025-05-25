@@ -33,7 +33,6 @@ async def ask_llm(history: list[dict]) -> str:
         return
     return response.content
 
-
 def normalize_roles(messages: list[dict]) -> list[dict]:
     if not messages:
         return []
