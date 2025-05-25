@@ -1,60 +1,21 @@
-from aiogram import Dispatcher, types, F
+from aiogram import Dispatcher, F
 from aiogram.types import Message
 from aiogram.filters import Command
-from aiogram.filters.command import CommandObject
 from typing import TypedDict
 from utils.prompts import POSITION_INSTRUCTION_TEMPLATE, FINAL_SUMMARY_REQUEST
 from utils.extract_position import extract_position
-from bot.llm import ask_llm, is_valid_history
-from bot.memory import history_by_user, users, last_message_id_by_user, user_locks
-import re
+from bot.llm import ask_llm
+from bot.memory import history_by_user, users
 
-STARTER_PHRASES = [
-    "Здравствуйте! Напишите, на какую позицию Вы хотите пройти собеседование.",
-    "Здравствуйте! Укажите вакансию, на которую хотите пройти собеседование.",
-]
-
-def should_start_dialog(history: list[str]) -> bool:
-    if not history:
-        return False
-    return any(phrase in history[0] for phrase in STARTER_PHRASES)
 
 class TgUserData(TypedDict, total=False):
-    num_message: int
     state: str
-    role_id: int
     history: list
     position: str
     question_num: int
     answers: list
 
 def register_handlers(dp: Dispatcher):
-
-    @dp.channel_post(Command("start"))
-    async def start_interview(message: Message, command: CommandObject):
-        cid = message.chat.id
-        arg = command.args
-        if arg is None:
-            await message.answer("Бот запущен с некорректным параметром. Укажите номер личности, например: /start 0")
-            return
-
-        try:
-            personality_id = int(arg)
-            if not 0 <= personality_id <= 4:
-                raise ValueError()
-        except ValueError:
-            await message.answer("Неверный параметр. Введите от 0 до 4. Пример: /start 2")
-            return
-
-        users[cid] = TgUserData(
-            num_message=0,
-            state="active",
-            role_id=personality_id,
-            question_num=0,
-            answers=[]
-        )
-        history_by_user[cid] = []
-
     @dp.channel_post(F.text)
     async def handle_message(message: Message):
         cid = message.chat.id
@@ -69,7 +30,6 @@ def register_handlers(dp: Dispatcher):
                 answers=[]
             )
             history_by_user[cid] = []
-            await message.answer("Здравствуйте! Напишите, на какую позицию Вы хотите пройти собеседование.")
             return
 
         user = users[cid]
@@ -100,7 +60,7 @@ def register_handlers(dp: Dispatcher):
                 await message.answer("Ошибка при обращении к LLM.")
             return
 
-        user.setdefault("answers", []).append(text)
+        user["answers"].append(text)
         user["question_num"] = user.get("question_num", 0) + 1
         history.append({"role": "user", "content": text})
 
@@ -111,16 +71,7 @@ def register_handlers(dp: Dispatcher):
             history.append({"role": "user", "content": FINAL_SUMMARY_REQUEST})
 
             try:
-                prompt = (
-                    "На основе диалога ниже выбери наиболее подходящую позицию из списка:"
-                    "- Data Scientist"
-                    "- Data Engineer"
-                    "- Data Analyst"
-                    "- MLOps Engineer"
-                    "- Project Manager"
-                    "Укажи только одну из позиций из списка."
-                    "Диалог:"
-                )
+                prompt = FINAL_SUMMARY_REQUEST
 
                 full_history = "\n".join(
                     f"{msg['role'].capitalize()}: {msg['content']}" for msg in history if msg["role"] != "system"
@@ -128,7 +79,7 @@ def register_handlers(dp: Dispatcher):
                 final_prompt = {"role": "user", "content": prompt + full_history}
 
                 evaluation_history = [
-                    {"role": "system", "content": "Ты — эксперт по подбору IT-специалистов. Твоя задача — проанализировать диалог и выбрать наиболее подходящую профессию для кандидата."},
+                    {"role": "system", "content": "Ты — эксперт по подбору IT-специалистов. Твоя задача — проанализировать диалог и выбрать наиболее подходящую профессию для кандидата. Кандидат может врать"},
                     final_prompt
                 ]
 
